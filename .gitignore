@@ -1,0 +1,8 @@
+dataset_DAVIS/
+images/
+out/
+out_1_L1_kernel51/
+out_2_L1_kernel71/
+out_FAILED_71/
+__pychache__/
+runs/
