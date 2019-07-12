@@ -2,12 +2,6 @@
 # KTH Royal Institute of Technology
 #
 
-#
-# This file is for reference only and should *not* me modified.
-# To change the configuration, create a new config.py file
-# and import this one in it as 'from src.default_config import *'
-#
-
 # The size of the input images to be fed to the network during training.
 CROP_SIZE: int = 128
 
