@@ -12,10 +12,10 @@ PATCH_SIZE = (150, 150)
 CACHE_PATCHES: bool = False
 
 # Number of epochs used for training
-EPOCHS: int = 18
+EPOCHS: int = 4 #16
 
 # Kernel size of the custom Separable Convolution layer
-OUTPUT_1D_KERNEL_SIZE: int = 71
+OUTPUT_1D_KERNEL_SIZE: int = 71 #51
 
 # The batch size used for mini batch gradient descent
 BATCH_SIZE: int = 16 #32 for proper run 1
@@ -62,7 +62,7 @@ RANDOM_TEMPORAL_ORDER_SWAP_PROB: float = 0.5
 
 # Start from pre-trained model (path)
 #START_FROM_EXISTING_MODEL = None
-START_FROM_EXISTING_MODEL = '/home/lera/Documents/Mart_Kartasev_sepconv/src/out_2_L1_kernel71/model_epoch_12.pth'
+START_FROM_EXISTING_MODEL = '/home/lera/Documents/Mart_Kartasev_sepconv/src/out_2_L1_kernel71/model_epoch_26.pth'
 
 # One of {"l1", "vgg", "ssim"}
 LOSS: str = "l1"

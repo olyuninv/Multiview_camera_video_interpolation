@@ -146,8 +146,8 @@ def get_validation_set():
     tuples = data_manager.prepare_dataset_validation()
     return ValidationDataset(tuples)
 	
-def get_test_set(random = True):
-    tuples = data_manager.prepare_dataset_validation(None, True, random)
+def get_test_set(number_of_samples, random = True):
+    tuples = data_manager.prepare_dataset_validation(None, True, number_of_samples, random)
     return ValidationDataset(tuples)
 
 def get_test_set_offset(minOffset, maxOffset, stepSize):

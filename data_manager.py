@@ -566,7 +566,7 @@ def get_tuples_distance(dataset_dir=None, test_set=False, minDistance=1, maxDist
     else:
         mv_dir = join(dataset_dir, 'VALIDATION')
 
-    npy_file_location = join(mv_dir,"per_frame_7.npy")
+    npy_file_location = join(mv_dir,"per_frame_8.npy")
     npy_file = np.load(npy_file_location)
 
     (nSteps, mapSteps) = map_steps(minDistance, maxDistance, stepSize)
@@ -586,7 +586,7 @@ def get_tuples_distance(dataset_dir=None, test_set=False, minDistance=1, maxDist
          steps_dict[step] = []
 
     for step in mapSteps:
-        for i in range(364): # len(npy_file)):
+        for i in range(137): # len(npy_file)):
             if npy_file[i][0][distance_column_index] >= step[min_column_index] and npy_file[i][0][distance_column_index] <= \
                     step[max_column_index]:
                 steps_dict.get(step[step_column_index]).append((npy_file[i][0][run_column_index], npy_file[i][0][frame_column_index]))
@@ -605,7 +605,7 @@ def get_tuples_offset(dataset_dir=None, test_set=False, minOffset=5, maxOffset=5
 
     #tuples = tuples_from_mv(mv_dir)
 
-    npy_file_location = join(mv_dir,"cameraParams_7.npy")
+    npy_file_location = join(mv_dir,"cameraParams_8.npy")
     npy_file = np.load(npy_file_location)
 
     (nSteps, mapSteps) = map_steps(minOffset, maxOffset, stepSize)
@@ -621,7 +621,7 @@ def get_tuples_offset(dataset_dir=None, test_set=False, minOffset=5, maxOffset=5
 
     # find rows in npy_file that correspond to the step
     for step in mapSteps:
-        for i in range(364):  #len(npy_file)):
+        for i in range(137):  #len(npy_file)):
             if npy_file[i][0][offset_column_index] >= step[min_column_index] and npy_file[i][0][offset_column_index] <= step[max_column_index]:
                 run_to_step[int(npy_file[i][0][runnumber_column_index])] = int(step[step_column_index])
 
@@ -646,7 +646,7 @@ def get_tuples_offset(dataset_dir=None, test_set=False, minOffset=5, maxOffset=5
     # return tuples_dict, mapSteps
 
 
-def prepare_dataset_validation(dataset_dir=None, test_set=False, randomSelection=True):
+def prepare_dataset_validation(dataset_dir=None, test_set=False, number_of_samples = 100, randomSelection=True):
     """
     Performs all necessary operations to get the training dataset ready, such as
     selecting patches, caching the cropped versions if necessary, etc..
@@ -664,11 +664,40 @@ def prepare_dataset_validation(dataset_dir=None, test_set=False, randomSelection
 		
     tuples = tuples_from_mv(mv_dir)
 
-    if (randomSelection != True):
-        return tuples;
+    if randomSelection != True:
+        return  tuples
 
-    n_samples = min(len(tuples), config.MAX_VALIDATION_SAMPLES)
+    n_samples = len(tuples)
+
+    #if randomSelection:
+    n_samples = min(len(tuples), number_of_samples)  # config.MAX_VALIDATION_SAMPLES)
     random_ = random.Random(42)
-    tuples = random_.sample(tuples, n_samples)
+    tuples = random_.sample(tuples, n_samples) # * 2)
 
-    return tuples
+    # find n_samples images that are not all green
+    #jumpcut_threshold = 60e-6  # Good - 15e-6
+    #pil_to_numpy = lambda x: np.array(x)[:, :, ::-1]
+
+    #bk_image = '/home/lera/Documents/surreal-master/datageneration/misc/background/just_green_test.png'
+    #greenImage = load_img(bk_image)
+    #greenImage = pil_to_numpy(greenImage)
+    #count = 0
+
+    # non_green_tuples = []
+    #
+    # for i, tup in enumerate(tuples):
+    #     x1, gt, x2 = [pil_to_numpy(load_img(p)) for p in tup]
+    #
+    #     if (same_image(x1, greenImage, jumpcut_threshold) and \
+    #         same_image(gt, greenImage, jumpcut_threshold)) or \
+    #             (same_image(gt, greenImage, jumpcut_threshold) and \
+    #              same_image(x2, greenImage, jumpcut_threshold)):
+    #         continue
+    #
+    #     non_green_tuples.append(tup)
+    #     count+=1
+    #
+    #     if count == n_samples:
+    #         break
+
+    return tuples # non_green_tuples

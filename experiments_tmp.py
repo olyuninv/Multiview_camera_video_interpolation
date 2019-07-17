@@ -120,7 +120,7 @@ def test_patches(model, validation_set=None):
 def visual_difference(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return (a - b) + 0.5
 
-def test_interpolation(model, validation_set=None, save=False, linearInterpolation=False, vis_difference=False):
+def test_random_sample(model, validation_set=None, save=False, linearInterpolation=False, vis_difference=False):
 
     if validation_set is None:
         validation_set = get_test_set()
@@ -423,8 +423,8 @@ def test_all():
     print('===> Loading pure L1...')
     pure_l1 = Net.from_file('../trained_models_71/model_epoch_14.pth')
 
-    # print('===> Testing patches...')
-    # test_interpolation(pure_l1, None, True, True, True)
+    print('===> Testing patches...')
+    test_random_sample(pure_l1, None, True, True, True)
 
     # Record all ssim/ psnr
     results_folder = '/home/lera/Documents/Mart_Kartasev_sepconv/results_71'

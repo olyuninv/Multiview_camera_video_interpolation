@@ -32,6 +32,8 @@ import torch
 import numpy as np
 import cv2 as cv
 
+minRGB = [65.0/255, 154.0/255, 74.0/255]
+maxRGB = [91.0/255, 190.0/255, 101.0/255]
 
 def pil_to_cv(pil_image):
     """
@@ -63,22 +65,70 @@ def write_video(file_path, frames, fps):
 def mse(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     return ((a - b) ** 2).mean()
 
-def mse_significant(a: torch.Tensor, b: torch.Tensor, minRGB, maxRGB) -> torch.Tensor:
+def mse_significant(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     sq_error = (a - b) ** 2
+    tensor_size = sq_error.size()  # assime b is the same size
+    zero_array = torch.zeros(tensor_size)
+    #ones_array = torch.ones(tensor_size, dtype=torch.float32)
 
-    tensor_size = a.size()  # assime b is the same size
+    sq_error_green = torch.where((minRGB[0] <= a[0, :, :]), sq_error, zero_array)
+    sq_error_green = torch.where((a[0, :, :] <= maxRGB[0]), sq_error_green, zero_array)
+    sq_error_green = torch.where((minRGB[1] <= a[1, :, :]), sq_error_green, zero_array)
+    sq_error_green = torch.where((a[1, :, :] <= maxRGB[1]), sq_error_green, zero_array)
+    sq_error_green = torch.where((minRGB[2] <= a[2, :, :]), sq_error_green, zero_array)
+    sq_error_green = torch.where((a[2, :, :] <= maxRGB[2]), sq_error_green, zero_array)
+    sq_error_green = torch.where((minRGB[0] <= b[0, :, :]), sq_error_green, zero_array)
+    sq_error_green = torch.where((b[0, :, :] <= maxRGB[0]), sq_error_green, zero_array)
+    sq_error_green = torch.where((minRGB[1] <= b[1, :, :]), sq_error_green, zero_array)
+    sq_error_green = torch.where((b[1, :, :] <= maxRGB[1]), sq_error_green, zero_array)
+    sq_error_green = torch.where((minRGB[2] <= b[2, :, :]), sq_error_green, zero_array)
+    sq_error_green = torch.where((b[2, :, :] <= maxRGB[2]), sq_error_green, zero_array)
+
+    # sq_error_counts = torch.where((minRGB[0] < a[0, :, :]), ones_array, zero_array)
+    # sq_error_counts = torch.where((a[0, :, :] < maxRGB[0]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((minRGB[1] < a[1, :, :]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((a[1, :, :] < maxRGB[1]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((minRGB[2] < a[2, :, :]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((a[2, :, :] < maxRGB[2]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((minRGB[0] < b[0, :, :]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((b[0, :, :] < maxRGB[0]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((minRGB[1] < b[1, :, :]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((b[1, :, :] < maxRGB[1]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((minRGB[2] < b[2, :, :]), sq_error_counts, zero_array)
+    # sq_error_counts = torch.where((b[2, :, :] < maxRGB[2]), sq_error_counts, zero_array)
+
+    sq_error_green_sum = torch.sum(sq_error_green)   ## GREEN PIXEL ERROR
+    sq_error_green_sum_RGB = torch.sum(sq_error_green, 0)
+    #sq_error_green_check = torch.where(sq_error_green_sum_RGB > 0.00005, ones_array, zero_array)
+    #sq_error_green_count_check = torch.sum(sq_error_green_check)
+
+    sq_error_green_count = torch.nonzero(sq_error_green_sum_RGB).size()[0]  # outputs pixel count
+
+    sq_error_sum = torch.sum(sq_error)  #sq_error_non_green  ## TOTAL ERROR
+
+    sq_error_corrected_sum = sq_error_sum - sq_error_green_sum  ## NON-GREEN PIXEL ERROR
+    num_signif = tensor_size[1] * tensor_size[2] - sq_error_green_count
 
     #exclude totally green pixels from mean
-    countGreen = 0;
-    for i in range(tensor_size[1]):
-        for j in range(tensor_size[2]):
-            # if pixel is green in both increase counter
-            if minRGB[0] <= a[0,i,j]  <= maxRGB[0] and minRGB[1] <= a[1,i,j]  <= maxRGB[2] and minRGB[0] <= a[2,i,j]  <= maxRGB[2]:  # inrange
-                countGreen+=1
+    # sq_error_sum_check = 0
+    # countGreen = 0;
+    # for i in range(tensor_size[1]):
+    #     for j in range(tensor_size[2]):
+    #         # if pixel is green in both increase counter
+    #         if (minRGB[0] <= a[0,i,j]  <= maxRGB[0] and minRGB[1] <= a[1,i,j]  <= maxRGB[1] and minRGB[2] <= a[2,i,j]  <= maxRGB[2]) and \
+    #             (minRGB[0] <= b[0,i,j]  <= maxRGB[0] and minRGB[1] <= b[1,i,j]  <= maxRGB[1] and minRGB[2] <= b[2,i,j]  <= maxRGB[2]):  # inrange
+    #             countGreen+=1
+    #         else: # add to error
+    #              sq_error_sum_check += torch.sum(sq_error[:, i, j])
+    #
+    # num_signif_check = tensor_size[1] * tensor_size[2] - countGreen
 
-    num_signif = tensor_size[1] * tensor_size[2] - countGreen
+    if (sq_error_green_count == 0 ):  #num_signif
+        # image is all green - print warning
+        print("Warning: image is entirely green - please delete")
+        return 0
 
-    return sum(sq_error)/ num_signif
+    return sq_error_corrected_sum/ (3 * num_signif)   # sq_error_sum/ sq_error_green_count
 
 def psnr(approx: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
@@ -89,15 +139,22 @@ def psnr(approx: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
     _mse = mse(approx, target)
     _max = target.max()
+
+    mse_threashold = 0.0000000001
+
+    if _mse < mse_threashold:
+        print("Warning: image is entirely green - please delete")
+        return 0
+
     return 20 * _max.log10() - 10 * _mse.log10()
 
-def psnr_significant(approx: torch.Tensor, target: torch.Tensor, minRGB, maxRGB) -> torch.Tensor:
+def psnr_significant(approx: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
     """
     Computes the Peak Signal-to-Noise ratio between two images
     :param approx: Approximated image as a tensor
     :param target: Target image as a tensor
     :return: PSNR as a tensor
     """
-    _mse = mse_significant(approx, target, minRGB, maxRGB)
+    _mse = mse_significant(approx, target)
     _max = target.max()
     return 20 * _max.log10() - 10 * _mse.log10()
