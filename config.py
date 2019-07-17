@@ -15,7 +15,7 @@ CACHE_PATCHES: bool = False
 EPOCHS: int = 4 #16
 
 # Kernel size of the custom Separable Convolution layer
-OUTPUT_1D_KERNEL_SIZE: int = 71 #51
+OUTPUT_1D_KERNEL_SIZE: int = 51 #71
 
 # The batch size used for mini batch gradient descent
 BATCH_SIZE: int = 16 #32 for proper run 1

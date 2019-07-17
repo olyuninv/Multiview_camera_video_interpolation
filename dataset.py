@@ -56,6 +56,12 @@ def pil_to_tensor(x_pil):
     x_np = pil_to_numpy(x_pil)
     return torch.from_numpy(x_np).float()
 
+def numpy_to_pil_2dim(x_np):
+    x_np = x_np.copy()
+    x_np *= 255
+    x_np = x_np.clip(0, 255)
+    return Image.fromarray(x_np, mode='L')
+
 def numpy_to_pil(x_np):
     """
     :param x_np: Image as a numpy array of shape (channels, height, width)
@@ -75,6 +81,14 @@ def tensor_to_pil(x_tensor):
     """
     x_np = x_tensor.numpy()[:, :, :]
     return numpy_to_pil(x_np)
+
+def tensor_to_pil_2dim(x_tensor):
+    """
+    :param Normalized torch tensor of shape (height, width)
+    :return: : PIL.Image object
+    """
+    x_np = x_tensor.numpy()[:, :]
+    return numpy_to_pil_2dim(x_np)
 
 class PatchDataset(data.Dataset):
 

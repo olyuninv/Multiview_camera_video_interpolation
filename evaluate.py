@@ -43,7 +43,7 @@ from src.model import Net
 from src.interpolate import interpolate
 from src.extract_frames import extract_frames
 from src.data_manager import load_img
-from src.dataset import pil_to_tensor, tensor_to_pil, get_validation_set, get_test_set, get_test_set_offset, get_test_set_distance
+from src.dataset import pil_to_tensor, tensor_to_pil, tensor_to_pil_2dim, get_validation_set, get_test_set, get_test_set_offset, get_test_set_distance
 from src.utilities import psnr, psnr_significant
 from src.loss import ssim, ssim_significant
 import src.config as config
@@ -264,7 +264,7 @@ def test_linear_interp(validation_set=None):
 def plot_distance_to_subject(model, results = None):
     ## This just plots results based on provided npy file - if this is significant or not - results correspond
 
-    (steps_dict, mapSteps) = get_test_set_distance(0, 7, 0.5)
+    (steps_dict, mapSteps) = get_test_set_distance(2, 5.60, 0.2)
 
     if results is None:
         print('This code is unfinished. please provide results file containing ssims and psnrs')
@@ -309,7 +309,7 @@ def plot_distance_to_subject(model, results = None):
     max_column_index = 2
 
     for j, step in enumerate(mapSteps):
-        labels.append(str(step[min_column_index]) + ' - ' + str(step[max_column_index]))
+        labels.append("{:0.2f} - {:0.2f}".format(step[min_column_index], step[max_column_index]))
 
     # plot ssim
     plt.figure(1)
@@ -322,7 +322,9 @@ def plot_distance_to_subject(model, results = None):
         plt.text(i, v, "{:0.4f}".format(v), fontsize=7)
 
     plt.title('SSIM depending on distance')
-    plt.show()
+    #plt.show()
+
+    plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "SSIM_Distance.png"))
 
     # plot psnr
     plt.figure(2)
@@ -333,12 +335,18 @@ def plot_distance_to_subject(model, results = None):
     for i, v in zip(index, list_psnr):
         plt.text(i, v, "{:0.2f}".format(v), fontsize=7)
     plt.title('PSNR depending on distance')
-    plt.show()
+    #plt.show()
+
+    plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "PSNR_Distance.png"))
 
 def plot_offset(model, results = None):
     ## This just plots results based on provided npy file - if this is significant or not - results correspond
 
     (run_to_step, mapSteps) = get_test_set_offset(0.05, 0.50, 0.05)
+
+    dump_file = True
+    if dump_file:
+        np.savetxt(join(results_folder, "results_silhouette.csv"), results, delimiter=",")
 
     if results is None:
         print ('Need to get tuples and run the test')
@@ -376,57 +384,111 @@ def plot_offset(model, results = None):
 
         list_ssim = []
         list_psnr = []
+        list_fn_ratio = []
+        list_fp_ratio = []
+
+        num_columns = results.shape[1]
+
+        if num_columns == 9:  # silhouette included
+            # calculate ratios
+            fn_ratio = results[:, 7] / results[:, 6]
+            fp_ratio = results[:, 8] / results[:, 6]
+
+            # Add 3 columns - true pixels, fn, fp
+            results = np.c_[results, fn_ratio]
+            results = np.c_[results, fp_ratio]
+            num_columns = 11
 
         for step in range(len(mapSteps)):
 
             total_ssim = 0
             total_psnr = 0
+            total_fn_ratio = 0
+            total_fp_ratio = 0
+
             count = 0
 
             for runNumber in run_to_step:
                 if run_to_step.get(runNumber) == step:
-                    selected_rows = results[results[:,0] == runNumber ][:,np.array([False, False, True, True])]
+
+                    selected_rows = None
+                    if num_columns == 4:
+                        selected_rows = results[results[:,0] == runNumber ][:, np.array([False, False, True, True])]
+                    elif num_columns == 5:
+                        selected_rows = results[results[:, 0] == runNumber][:, np.array([False, False, True, True, False])]
+                    elif num_columns == 6:
+                        selected_rows = results[results[:, 0] == runNumber][:, np.array([False, False, True, True, False, False])]
+                    elif num_columns == 11:
+                        selected_rows = results[results[:, 0] == runNumber][:, np.array([False, False, True, True, False, False, False, False, False, True, True])]
+
                     total_ssim += sum (selected_rows[:, 0])
                     total_psnr += sum (selected_rows[:, 1])
+
+                    if num_columns == 11:
+                        total_fn_ratio += sum (selected_rows[:, 2])
+                        total_fp_ratio += sum(selected_rows[:, 3])
+
                     count += len(selected_rows)
 
             avg_ssim = total_ssim / count
             avg_psnr = total_psnr / count
+            avg_fn_ratio = 0
+            avg_fp_ratio = 0
+
+            if num_columns == 11:
+                avg_fn_ratio = total_fn_ratio / count
+                avg_fp_ratio = total_fp_ratio / count
+
             print(f'avg_ssim: {avg_ssim}, avg_psnr: {avg_psnr} for step {step}')
 
             list_ssim.append(avg_ssim)
             list_psnr.append(avg_psnr)
 
-    #Create labels
+            if num_columns == 11:
+                list_fn_ratio.append(avg_fn_ratio)
+                list_fp_ratio.append(avg_fp_ratio)
+
+    # Create labels
     index = np.arange(len(mapSteps))
     labels = []
     min_column_index = 1
     max_column_index = 2
 
     for j, step in enumerate(mapSteps):
-        labels.append("{:0.2f} - {:0.2f}".format(step[min_column_index],step[max_column_index]))
+        labels.append("{:0.2f} - {:0.2f}".format(step[min_column_index], step[max_column_index]))
 
-    # plot ssim
-    plt.figure(1)
-    plt.bar(index, list_ssim)
-    plt.xlabel('Offset', fontsize=7)
-    plt.ylabel('SSIM', fontsize=7)
-    plt.xticks(index, labels, fontsize=7, rotation=30)
-    for i, v in zip(index, list_ssim):
-        plt.text(i, v, "{:0.4f}".format(v), fontsize=7)
-    plt.title('SSIM depending on offset')
-    plt.show()
+    plot_figure(index, list_ssim, 'SSIM depending on the offset', 'Offset(m)', labels, 'SSIM', "{:0.4f}"
+                , False, join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "SSIM_Offset.png"))
 
+    plot_figure(index, list_psnr, 'PSNR depending on the offset', 'Offset(m)', labels, 'PSNR', "{:0.2f}"
+                , False, join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "PSNR_Offset.png"))
+
+    if num_columns == 11:
+        plot_figure(index, list_fn_ratio, 'False negative silhouette pixels depending on the offset'
+                    , 'Offset(m)', labels, 'False negative ratio to total silhouette pixels', "{:0.4f}"
+                    , False, join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "FN_ratio_Offset.png"))
+
+        plot_figure(index, list_fp_ratio, 'False positive silhouette pixels depending on the offset'
+                    , 'Offset(m)', labels, 'False positive ratio to total silhouette pixels', "{:0.4f}"
+                    , False, join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "FP_ratio_Offset.png"))
+
+
+def plot_figure(steps, data, title, xlabel, xticks, ylabel, plt_text_format, display=True
+                , savelocation = "/home/lera/Documents/Mart_Kartasev_sepconv/test_output/test.png"):
     # plot psnr
-    plt.figure(2)
-    plt.bar(index, list_psnr)
-    plt.xlabel('Offset', fontsize=7)
-    plt.ylabel('PSNR', fontsize=7)
-    plt.xticks(index, labels, fontsize=7, rotation=30)
-    for i, v in zip(index,list_psnr):
-        plt.text(i, v, "{:0.2f}".format(v), fontsize=7)
-    plt.title('PSNR depending on offset')
-    plt.show()
+    plt.figure()
+    plt.bar(steps, data)
+    plt.xlabel(xlabel, fontsize=7)
+    plt.ylabel(ylabel, fontsize=7)
+    plt.xticks(steps, xticks, fontsize=7, rotation=30)
+    for i, v in zip(steps, data):
+        plt.text(i, v, plt_text_format.format(v), fontsize=7)
+    plt.title(title)
+
+    if display:
+        plt.show()
+    else:
+        plt.savefig(savelocation)
 
 def record_all(model, results_folder, significant_only = False):
 
@@ -493,7 +555,7 @@ def map_steps(min=5, max=50, stepSize=5):
 
     return nSteps, mapSteps
 
-def plot_optic_flow_category(results_folder, results_file_name):
+def plot_optic_flow_category(results_folder, results_file_name,dist_to_center=False):
     ## This just plots results based on provided npy file - if this is significant or not - results correspond
 
     results_file = join(results_folder, results_file_name)
@@ -501,12 +563,12 @@ def plot_optic_flow_category(results_folder, results_file_name):
 
     dump_file = False
     if dump_file:
-        np.savetxt(join(results_folder, "results.csv"), np_array, delimiter=",")
+        np.savetxt(join(results_folder, "results_pixel_distance.csv"), np_array, delimiter=",")
 
-    min_opt_flow = np.amin(np_array[:,4], axis=0)
-    max_opt_flow = np.amax(np_array[:,4], axis=0)
+    #min_opt_flow = np.amin(np_array[:,4], axis=0)
+    #max_opt_flow = np.amax(np_array[:,4], axis=0)
 
-    (nSteps, mapSteps) = map_steps(0.0, 5.0, 0.2)
+    (nSteps, mapSteps) = map_steps(0, 180, 10)
 
     # find rows in npy_file that correspond to the step
     step_column_index = 0
@@ -515,6 +577,8 @@ def plot_optic_flow_category(results_folder, results_file_name):
     run_column_index = 0
     frame_column_index = 1
     opt_flow_column_index = 4
+    if dist_to_center:
+        opt_flow_column_index = 5
 
     steps_dict = dict()
 
@@ -546,7 +610,12 @@ def plot_optic_flow_category(results_folder, results_file_name):
             frame = run_frame[1]
             selected_rows = np_array[np_array[:, 0] == run]
             selected_rows = selected_rows[selected_rows[:, 1] == frame]
-            selected_rows = selected_rows[:, np.array([False, False, True, True, False])]
+
+            if dist_to_center:
+                selected_rows = selected_rows[:, np.array([False, False, True, True, False, False])]
+            else:
+                selected_rows = selected_rows[:, np.array([False, False, True, True, False])]
+
             total_ssim += sum(selected_rows[:, 0])
             total_psnr += sum(selected_rows[:, 1])
             # count += len(selected_rows)
@@ -569,84 +638,114 @@ def plot_optic_flow_category(results_folder, results_file_name):
     max_column_index = 2
 
     for j, step in enumerate(mapSteps):
-        labels.append("{:0.2f} - {:0.2f}".format(step[min_column_index],step[max_column_index]))
+        labels.append(str(step[min_column_index]) + ' - ' + str(step[max_column_index]))
 
     # plot ssim
     plt.figure(1)
     plt.bar(index, list_ssim)
-    plt.xlabel('Optical Flow', fontsize=7)
+
+    if dist_to_center:
+        plt.xlabel('Distance in pixels to center (left and right image average)', fontsize=7)
+    else:
+        plt.xlabel('Distance in pixels between left and right image', fontsize=7)
+
     plt.ylabel('SSIM', fontsize=7)
     plt.xticks(index, labels, fontsize=7, rotation=30)
 
     for i, v in zip(index, list_ssim):
         plt.text(i, v, "{:0.4f}".format(v), fontsize=7)
 
-    plt.title('SSIM depending on optical flow')
-    plt.show()
+    plt.title('SSIM depending on pixel distance')
+    #plt.show()
+    graph_name = "SSIM_pixel_dist.png"
+    if dist_to_center:
+        graph_name = "SSIM_dist_to_center"
+
+    plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", graph_name))
 
     # plot psnr
     plt.figure(2)
     plt.bar(index, list_psnr)
-    plt.xlabel('Optical Flow', fontsize=7)
+
+    if dist_to_center:
+        plt.xlabel('Distance in pixels to center (left and right image average)', fontsize=7)
+    else:
+        plt.xlabel('Distance in pixels between left and right image', fontsize=7)
+
     plt.ylabel('PSNR', fontsize=7)
     plt.xticks(index, labels, fontsize=7, rotation=30)
     for i, v in zip(index, list_psnr):
         plt.text(i, v, "{:0.2f}".format(v), fontsize=7)
-    plt.title('PSNR depending on optical flow')
-    plt.show()
+    plt.title('PSNR depending on pixel distance')
+    #plt.show()
 
-    j = 0
+    graph_name = "PSNR_pixel_dist.png"
+    if dist_to_center:
+        graph_name = "PSNR_dist_to_center"
 
-def calculate_pixel_distance(x1: torch.Tensor, x2: torch.Tensor):
-    # find the bounding boxes
+    plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", graph_name))
+
+def extractSilhouette(x1: torch.Tensor)-> torch.Tensor:
     tensor_size = x1.size()  # assime b is the same size
     zero_array = torch.zeros(tensor_size)
-    zero_array_RGB = torch.zeros((tensor_size[1], tensor_size[2]))
-    ones_array_RGB = torch.ones((tensor_size[1], tensor_size[2]))
+    zero_array_RGB = torch.zeros((tensor_size[1], tensor_size[2]), dtype = torch.int16)
+    ones_array_RGB = torch.ones((tensor_size[1], tensor_size[2]), dtype = torch.int16)
 
-    # ones_array = torch.ones(tensor_size, dtype=torch.float32)
-
-    # x1 bounding box
+    # This code selects only green pixels in the range and zeroes the rest
     x1_green = torch.where((minRGB[0] <= x1[0, :, :]), x1, zero_array)
     x1_green = torch.where((x1[0, :, :] <= maxRGB[0]), x1_green, zero_array)
-    x1_green = torch.where((minRGB[1] <=x1[1, :, :]), x1_green, zero_array)
+    x1_green = torch.where((minRGB[1] <= x1[1, :, :]), x1_green, zero_array)
     x1_green = torch.where((x1[1, :, :] <= maxRGB[1]), x1_green, zero_array)
     x1_green = torch.where((minRGB[2] <= x1[2, :, :]), x1_green, zero_array)
     x1_green = torch.where((x1[2, :, :] <= maxRGB[2]), x1_green, zero_array)
+
+    x1_green_sum_RGB = torch.sum(x1_green, 0)
+
+    # invert image
+    x1_opposite = torch.where(x1_green_sum_RGB > 0, zero_array_RGB, ones_array_RGB)
+
+    return x1_opposite
+
+def calculate_pixel_distance_to_center(x1: torch.Tensor, x2: torch.Tensor):
+    return calculate_pixel_distance(x1, x2, dist_to_center = True)
+
+def calculate_pixel_distance(x1: torch.Tensor, x2: torch.Tensor, dist_to_center = False):
+    # find the bounding boxes
+    tensor_size = x1.size()  # assime b is the same size
+
+    # x1 bounding box
+    x1_opposite = extractSilhouette(x1)
 
     # save the image
     #x1_green_pil = tensor_to_pil(x1_green)
     #x1_green_pil.save(join('/home/lera/Documents/Mart_Kartasev_sepconv/', 'test_image.png'))
 
-    x1_green_sum_RGB = torch.sum(x1_green, 0)
-
-    x1_opposite = torch.where(x1_green_sum_RGB > 0, zero_array_RGB, ones_array_RGB)
-
     index_non_zero_x1 = torch.nonzero(x1_opposite)
+
     min_index_rows_x1 = torch.min(index_non_zero_x1, 0)[0][1]
     max_index_rows_x1 = torch.max(index_non_zero_x1, 0)[0][1]
-    median_x1 = (max_index_rows_x1 - min_index_rows_x1) / 2
+
+    median_x1 = min_index_rows_x1 + (max_index_rows_x1 - min_index_rows_x1) / 2
     
-    # x2 bounding box 
-    x2_green = torch.where((minRGB[0] <= x2[0, :, :]), x2, zero_array)
-    x2_green = torch.where((x2[0, :, :] <= maxRGB[0]), x2_green, zero_array)
-    x2_green = torch.where((minRGB[1] <= x2[1, :, :]), x2_green, zero_array)
-    x2_green = torch.where((x2[1, :, :] <= maxRGB[1]), x2_green, zero_array)
-    x2_green = torch.where((minRGB[2] <= x2[2, :, :]), x2_green, zero_array)
-    x2_green = torch.where((x2[2, :, :] <= maxRGB[2]), x2_green, zero_array)
-
-    x2_green_sum_RGB = torch.sum(x2_green, 0)
-
-    x2_opposite = torch.where(x2_green_sum_RGB > 0, zero_array_RGB, ones_array_RGB)
+    # x2 bounding box
+    x2_opposite = extractSilhouette(x2)
 
     index_non_zero_x2 = torch.nonzero(x2_opposite)
-    min_index_rows_x2 = torch.min(index_non_zero_x2, 0)[0][0]
-    max_index_rows_x2 = torch.max(index_non_zero_x2, 0)[0][0]
-    median_x2 = (max_index_rows_x2 - min_index_rows_x2) / 2
-    
+
+    min_index_rows_x2 = torch.min(index_non_zero_x2, 0)[0][1]
+    max_index_rows_x2 = torch.max(index_non_zero_x2, 0)[0][1]
+    median_x2 = min_index_rows_x2 + (max_index_rows_x2 - min_index_rows_x2) / 2
+
+    if dist_to_center:
+        center_x = tensor_size[2] / 2
+        return (torch.abs(median_x2 - center_x) + torch.abs(median_x1 - center_x)) / 2
+
     return torch.abs(median_x2 - median_x1)
 
-def add_optic_flow_column(model, results_folder, results_file_name):
+def add_dist_from_center(model, results_folder, results_file_name):
+    return add_optic_flow_column(model, results_folder, results_file_name, dist_from_center=True)
+
+def add_optic_flow_column(model, results_folder, results_file_name, dist_from_center=False):
     #print('===> Loading pure L1...')  ##model is not used
     #pure_l1 = Net.from_file(model)
 
@@ -672,15 +771,30 @@ def add_optic_flow_column(model, results_folder, results_file_name):
         x1, gt, x2 = [pil_to_tensor(load_img(p)) for p in tup]
 
         #need pil to numpy
-        #avg_flow = simple_flow(x1, x2)
-        avg_flow = calculate_pixel_distance(x1, x2)
+        avg_flow = 0
+        add_column_index = 4
+        if dist_from_center:
+            add_column_index = 5
+
+        if dist_from_center:
+            avg_flow = calculate_pixel_distance_to_center(x1, x2)
+        else:
+            avg_flow = calculate_pixel_distance(x1, x2)
+            # avg_flow = simple_flow(x1, x2)
 
         update_row_indexs = np.where(np.all([update_array[:,0] == run_number, update_array[:, 1] == frame_number], axis=0))
         if len(update_row_indexs[0]) == 1:
             update_row_index = update_row_indexs[0][0]
-            update_array[update_row_index, 4] = avg_flow
+            update_array[update_row_index, add_column_index] = avg_flow
 
-    results_file_flow = join(results_folder,  "ssim_psnr_all_8_significant_with_pixel_distance.npy") # "ssim_psnr_all_8_significant_with_flow.npy")
+        print(f'#{i + 1} done')
+
+    results_file_flow = ""
+    if dist_from_center:
+        results_file_flow = join(results_folder,  "ssim_psnr_all_8_significant_distance_from_center.npy") # "ssim_psnr_all_8_significant_with_flow.npy")
+    else:
+        results_file_flow = join(results_folder,
+                                 "ssim_psnr_all_8_significant_with_pixel_distance.npy")  # "ssim_psnr_all_8_significant_with_flow.npy")
     np.save(results_file_flow, update_array)
 
     return update_array
@@ -761,6 +875,119 @@ def clean_data(test_folder):
             os.remove(tup[2])
             print('Tuple removed')
 
+def add_silhouette(model, results_folder,results_file_name):
+    # read tuples, interpolate, find GT and interpolated silhouette, count FP/ FN, record in results_file_name
+    print('===> Loading pure L1...')
+    pure_l1 = Net.from_file(model)
+
+    validation_set = get_test_set(0, False)  # GET ALL TUPLES
+
+    results_file = join(results_folder, results_file_name)
+    np_array = np.load(results_file)
+
+    n_rows = np_array.shape[0]
+    zero_column = np.zeros(n_rows)
+
+    # Add 3 columns - true pixels, fn, fp
+    update_array = np.c_[np_array, zero_column]
+    update_array = np.c_[update_array, zero_column]
+    update_array = np.c_[update_array, zero_column]
+
+    for i, tup in enumerate(validation_set.tuples):
+        tuple_name = tup[0].split("/")
+        run_number = int(tuple_name[len(tuple_name) - 1][8:12])
+        frame_number = int(tuple_name[len(tuple_name) - 1][13:17])
+
+        x1, gt, x2 = [load_img(p) for p in tup]
+        pred = interpolate(pure_l1, x1, x2)
+
+        gt_tensor = pil_to_tensor(gt)
+        pred_tensor = pil_to_tensor(pred)
+
+        gt_silhouette = extractSilhouette(gt_tensor)
+        count_correct = torch.nonzero(gt_silhouette).size()[0]
+
+        pred_silhouette = extractSilhouette(pred_tensor)
+
+        tensor_size = gt_silhouette.size()
+        zero_array_RGB = torch.zeros(tensor_size, dtype = torch.int16)
+        ones_array_RGB = torch.ones(tensor_size, dtype = torch.int16)
+
+        #check
+        sum = gt_silhouette + pred_silhouette
+        #false_pixels = torch.where(sum == 2, zero_array_RGB, sum)
+        #false_count = torch.nonzero(false_pixels).size()[0]
+
+        minus = gt_silhouette - pred_silhouette
+
+        # gt exists pred does not
+        false_negative = torch.where(minus == 1, minus, zero_array_RGB)
+        count_fn = torch.nonzero(false_negative).size()[0]
+
+        false_positive = torch.where(minus == -1, minus, zero_array_RGB)
+        count_fp = torch.nonzero(false_positive).size()[0]
+
+        #false_pixels = torch.where(sum == 2, zero_array_RGB, sum)
+        #count_false = count_fn + count_fp #torch.nonzero(false_pixels).size()[0]
+
+        #fn_ratio = count_fn / count_correct
+        #fp_ratio = count_fp / count_correct
+        #false_ratio = count_false / count_correct
+
+        # add to array
+        true_pixels_column_index = 6
+        fn_column_index = 7
+        fp_column_index = 8
+
+        update_row_indexs = np.where(
+            np.all([update_array[:, 0] == run_number, update_array[:, 1] == frame_number], axis=0))
+        if len(update_row_indexs[0]) == 1:
+            update_row_index = update_row_indexs[0][0]
+            update_array[update_row_index, true_pixels_column_index] = count_correct
+            update_array[update_row_index, fn_column_index] = count_fn
+            update_array[update_row_index, fp_column_index] = count_fp
+
+        # save the images
+        save = True
+        if save:
+            #fn_pil = tensor_to_pil_2dim(false_negative)
+            #fn_pil.save(join(results_folder, '{}_{}_fn.jpg'.format(run_number, frame_number)))
+
+            #fp_pil = tensor_to_pil_2dim(torch.abs(false_positive))
+            #fp_pil.save(join(results_folder, '{}_{}_fp.jpg'.format(run_number, frame_number)))
+
+            #false_pil = tensor_to_pil_2dim((minus + 1)/ 2.0)
+            #false_pil.save(join(results_folder, '{}_{}_false_pixels.jpg'.format(run_number, frame_number)))
+
+            # create red tensor
+            red_array = torch.zeros(gt_tensor.size())
+            red_array[0, :, :] = 1
+
+            green_array = torch.zeros(gt_tensor.size())
+            green_array[1, :, :] = 1
+
+            zero_array = torch.zeros(gt_tensor.size())
+            ones_array = torch.ones(gt_tensor.size())
+
+            save_pic = torch.where(minus == 1, red_array, gt_tensor)
+            save_pic = torch.where(minus == -1, green_array, save_pic)
+            save_pic = torch.where(sum == 0, zero_array, save_pic)
+
+            pic_pil = tensor_to_pil(save_pic)
+            pic_pil.save(join(results_folder, '{}_{}_silhouette.jpg'.format(run_number, frame_number)))
+
+
+        print(f'#{i + 1} done. run_number {run_number}, frame_number {frame_number}, true pixels {count_correct}, '
+              f'fn {count_fn}, fp {count_fp}')
+
+    # Save output
+    results_file_flow = join(results_folder,
+                             "ssim_psnr_all_8_significant_silhouettes.npy")  # "ssim_psnr_all_8_significant_with_flow.npy")
+
+    np.save(results_file_flow, update_array)
+
+    return update_array
+
 
 import time
 
@@ -771,7 +998,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Frame Interpolation')
 
     parser.add_argument('--model', type=str, required=True, help='path of the trained model')
-    parser.add_argument('--test', type=str, required=True, help='evaluate_all,interpolate_all,offset_cat,distance_cat,add_oflow,oflow_cat')
+    parser.add_argument('--test', type=str, required=True,
+                        help='evaluate_all,interpolate_all,offset_cat,distance_cat,add_oflow,oflow_cat,add_dist_center,plot_dist_center,add_silhouette')
     parser.add_argument('--results_folder', type=str, required=True, help='folder to output results if applicable')
     params = parser.parse_args()
 
@@ -788,7 +1016,8 @@ if __name__ == '__main__':
     if params.test == "interpolate_all":
         interpolate_all(params.model, results_folder, True)
 
-    results_file_name = "ssim_psnr_all_8_significant.npy" #"ssim_psnr_all_7.npy"
+    #results_file_name = "ssim_psnr_all_8_significant.npy" #"ssim_psnr_all_7.npy"
+    results_file_name = "ssim_psnr_all_8_significant_silhouettes.npy"
 
     if params.test == "offset_cat":
         test_offset_category(params.model, results_folder, results_file_name)
@@ -799,8 +1028,21 @@ if __name__ == '__main__':
     if params.test == "add_oflow":
         add_optic_flow_column(params.model, results_folder, results_file_name)
 
+    results_file_name = "ssim_psnr_all_8_significant_with_pixel_distance.npy"  # "ssim_psnr_all_7.npy"
+
     if params.test == "oflow_cat":
-        plot_optic_flow_category(results_folder, "ssim_psnr_all_8_significant_with_flow.npy")
+        plot_optic_flow_category(results_folder, results_file_name)
+
+    if params.test == "add_dist_center":
+        add_optic_flow_column(params.model, results_folder, results_file_name, True)
+
+    results_file_name = "ssim_psnr_all_8_significant_distance_from_center.npy"  # "ssim_psnr_all_7.npy"
+
+    if params.test == "plot_dist_center":
+        plot_optic_flow_category(results_folder, results_file_name, True)
+
+    if params.test == "add_silhouette":
+        add_silhouette(params.model, results_folder, results_file_name)
 
     elapsed_time = time.time() - start_time
     print("Elapsed time: [%.2f s]" % elapsed_time)
