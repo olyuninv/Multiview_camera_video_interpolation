@@ -312,7 +312,7 @@ def plot_distance_to_subject(model, results = None):
         labels.append("{:0.2f} - {:0.2f}".format(step[min_column_index], step[max_column_index]))
 
     # plot ssim
-    plt.figure(1)
+    plt.figure(1, figsize=(10, 8),)
     plt.bar(index, list_ssim)
     plt.xlabel('Distance to subject', fontsize=7)
     plt.ylabel('SSIM', fontsize=7)
@@ -327,7 +327,7 @@ def plot_distance_to_subject(model, results = None):
     plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", "SSIM_Distance.png"))
 
     # plot psnr
-    plt.figure(2)
+    plt.figure(2, figsize=(10, 8),)
     plt.bar(index, list_psnr)
     plt.xlabel('Distance to subject', fontsize=7)
     plt.ylabel('PSNR', fontsize=7)
@@ -476,7 +476,7 @@ def plot_offset(model, results = None):
 def plot_figure(steps, data, title, xlabel, xticks, ylabel, plt_text_format, display=True
                 , savelocation = "/home/lera/Documents/Mart_Kartasev_sepconv/test_output/test.png"):
     # plot psnr
-    plt.figure()
+    plt.figure(num=None, figsize=(10, 8),)
     plt.bar(steps, data)
     plt.xlabel(xlabel, fontsize=7)
     plt.ylabel(ylabel, fontsize=7)
@@ -641,7 +641,7 @@ def plot_optic_flow_category(results_folder, results_file_name,dist_to_center=Fa
         labels.append(str(step[min_column_index]) + ' - ' + str(step[max_column_index]))
 
     # plot ssim
-    plt.figure(1)
+    plt.figure(1, figsize=(10, 8),)
     plt.bar(index, list_ssim)
 
     if dist_to_center:
@@ -655,7 +655,11 @@ def plot_optic_flow_category(results_folder, results_file_name,dist_to_center=Fa
     for i, v in zip(index, list_ssim):
         plt.text(i, v, "{:0.4f}".format(v), fontsize=7)
 
-    plt.title('SSIM depending on pixel distance')
+    if dist_to_center:
+        plt.title('SSIM depending on distance to image center')
+    else:
+        plt.title('SSIM depending on pixel distance')
+
     #plt.show()
     graph_name = "SSIM_pixel_dist.png"
     if dist_to_center:
@@ -664,7 +668,7 @@ def plot_optic_flow_category(results_folder, results_file_name,dist_to_center=Fa
     plt.savefig(join("/home/lera/Documents/Mart_Kartasev_sepconv/test_output", graph_name))
 
     # plot psnr
-    plt.figure(2)
+    plt.figure(2, figsize=(10, 8),)
     plt.bar(index, list_psnr)
 
     if dist_to_center:
@@ -676,7 +680,11 @@ def plot_optic_flow_category(results_folder, results_file_name,dist_to_center=Fa
     plt.xticks(index, labels, fontsize=7, rotation=30)
     for i, v in zip(index, list_psnr):
         plt.text(i, v, "{:0.2f}".format(v), fontsize=7)
-    plt.title('PSNR depending on pixel distance')
+
+    if dist_to_center:
+        plt.title('PSNR depending on distance to image center')
+    else:
+        plt.title('PSNR depending on pixel distance')
     #plt.show()
 
     graph_name = "PSNR_pixel_dist.png"
@@ -1011,16 +1019,18 @@ if __name__ == '__main__':
 
     # test random sample of 100
     if params.test == "evaluate_all":
-        evaluate_all(params.model, results_folder, False, False, False, True)
+        evaluate_all(params.model, results_folder, True, False, True, True)
 
     if params.test == "interpolate_all":
         interpolate_all(params.model, results_folder, True)
 
-    #results_file_name = "ssim_psnr_all_8_significant.npy" #"ssim_psnr_all_7.npy"
+    ##"ssim_psnr_all_7.npy"
     results_file_name = "ssim_psnr_all_8_significant_silhouettes.npy"
 
     if params.test == "offset_cat":
         test_offset_category(params.model, results_folder, results_file_name)
+
+    results_file_name = "ssim_psnr_all_8_significant.npy"
 
     if params.test == "distance_cat":
         test_distance_category(params.model, results_folder, results_file_name)

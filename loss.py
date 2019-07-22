@@ -97,7 +97,7 @@ class SsimLoss(torch.nn.Module):
             self.window = window
             self.channel = channel
 
-        return -_ssim(img1, img2, window, self.window_size, channel, self.size_average)
+        return 1 - _ssim(img1, img2, window, self.window_size, channel, self.size_average)
 
 def ssim_significant(img1, img2, window_size=11, size_average=True):
     return ssim(img1, img2, window_size, size_average, True)
@@ -148,54 +148,84 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True, significa
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
     # exclude totally green pixels from mean
-    if significant_only:
+    #if significant_only:
 
-        tensor_size = ssim_map.size()  # assime b is the same size
-        zero_array = torch.zeros(tensor_size)
-
-        ssim_map_green = torch.where((minRGB[0] <= img1[:, 0, :, :]), ssim_map, zero_array)
-        ssim_map_green = torch.where((img1[:, 0, :, :] <= maxRGB[0]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((minRGB[1] <= img1[:, 1, :, :]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((img1[:, 1, :, :] <= maxRGB[1]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((minRGB[2] <= img1[:, 2, :, :]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((img1[:, 2, :, :] <= maxRGB[2]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((minRGB[0] <= img2[:, 0, :, :]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((img2[:, 0, :, :] <= maxRGB[0]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((minRGB[1] <= img2[:, 1, :, :]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((img2[:, 1, :, :] <= maxRGB[1]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((minRGB[2] <= img2[:, 2, :, :]), ssim_map_green, zero_array)
-        ssim_map_green = torch.where((img2[:, 2, :, :] <= maxRGB[2]), ssim_map_green, zero_array)
-
-        ssim_map_green_sum = torch.sum(ssim_map_green)  ## GREEN PIXEL SSIM
-        ssim_map_sum = torch.sum(ssim_map)  ## TOTAL SSIM
-        ssim_map_corrected_sum = ssim_map_sum - ssim_map_green_sum  ## NON-GREEN PIXEL SSIM
-
-        ssim_map_green_sum_RGB = torch.sum(ssim_map_green, 1)
-        sq_error_green_count = torch.nonzero(ssim_map_green_sum_RGB).size()[0]
-        num_signif = tensor_size[2] * tensor_size[3] - sq_error_green_count
-
-        # ssim_map_sum_check = 0.0
-        #
-        # countGreen_check = 0;
-        # for i in range(tensor_size[2]):
-        #     for j in range(tensor_size[3]):
-        #         # if pixel is green in both increase counter
-        #         if (minRGB[0] <= img1[0, 0, i, j] <= maxRGB[0] and minRGB[1] <= img1[0, 1, i, j] <= maxRGB[1] and minRGB[2] <= img1[
-        #             0, 2, i, j] <= maxRGB[2]) and \
-        #                 (minRGB[0] <= img2[0, 0, i, j] <= maxRGB[0] and minRGB[1] <= img2[0, 1, i, j] <= maxRGB[1] and minRGB[2] <= img2[
-        #                     0, 2, i, j] <= maxRGB[2]):  # inrange
-        #             countGreen_check += 1
-        #         else:  # add to error
-        #             ssim_map_sum_check += torch.sum(ssim_map[:, :, i, j])
-        #
-        # num_signif_check = tensor_size[2] * tensor_size[3] - countGreen_check
-
-        if (num_signif == 0):
-            # image is all green - print warning
-            print("Warning: image is entirely green - please delete")
-            return 0
-        else:
-            return ssim_map_corrected_sum / (3 * num_signif)
+       #  # collapse ssim in one dimension
+       #  ssim_map_RGB = torch.cuda.sum(ssim_map, 1)
+       #  print (ssim_map_RGB.size())
+       #
+       #  tensor_size = ssim_map_RGB.size()  # assime b is the same size
+       #  #print (tensor_size)
+       #  zero_array = torch.zeros(tensor_size)
+       # # minRGB_tensor = torch.cuda.FloatTensor(minRGB)
+       #  minRGB_tensor = torch.zeros(img1.size())
+       #  minRGB_tensor[:, 0, : ,:] = minRGB[0]
+       #  minRGB_tensor[:, 1, :, :] = minRGB[1]
+       #  minRGB_tensor[:, 2, :, :] = minRGB[2]
+       #  minRGB__cuda_tensor = minRGB_tensor.cuda()
+       #  print(minRGB__cuda_tensor.size())
+       #
+       #  #minRGB_tensor = minRGB_tensor.repeat(32, 1)
+       #  #print(minRGB_tensor)
+       #  #print(minRGB_tensor.size())
+       #  print(img1.size())
+       #  print(ssim_map.size())
+       #
+       #  print(zero_array.size())
+       #
+       #  maxRGB_tensor = torch.cuda.FloatTensor(maxRGB)
+       #  print(maxRGB_tensor)
+       #  maxRGB_tensor = maxRGB_tensor.repeat(32,1)
+       #  print(maxRGB_tensor)
+       #
+       #  first_result = minRGB__cuda_tensor[:, 0, :, :] <= img1[:, 0, :, :]
+       #  print(first_result.size())
+       #  ssim_map_green = torch.where((minRGB__cuda_tensor[:, 0, :, :] <= img1[:, 0, :, :]), ssim_map_RGB, zero_array)
+       #
+       #
+       #
+       #  ssim_map_green = torch.where((img1[:, 0, :, :] <= maxRGB_tensor[:, 0]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((minRGB_tensor[:, 1] <= img1[:, 1, :, :]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((img1[:, 1, :, :] <= maxRGB_tensor[:, 1]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((minRGB_tensor[:, 2] <= img1[:, 2, :, :]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((img1[:, 2, :, :] <= maxRGB_tensor[:, 2]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((minRGB_tensor[:, 0] <= img2[:, 0, :, :]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((img2[:, 0, :, :] <= maxRGB_tensor[:, 0]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((minRGB_tensor[:, 1] <= img2[:, 1, :, :]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((img2[:, 1, :, :] <= maxRGB_tensor[:, 1]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((minRGB_tensor[:, 2] <= img2[:, 2, :, :]), ssim_map_green, zero_array)
+       #  ssim_map_green = torch.where((img2[:, 2, :, :] <= maxRGB_tensor[:, 2]), ssim_map_green, zero_array)
+       #
+       #  ssim_map_green_sum = torch.sum(ssim_map_green)  ## GREEN PIXEL SSIM
+       #  ssim_map_sum = torch.sum(ssim_map)  ## TOTAL SSIM
+       #  ssim_map_corrected_sum = ssim_map_sum - ssim_map_green_sum  ## NON-GREEN PIXEL SSIM
+       #
+       #  ssim_map_green_sum_RGB = torch.sum(ssim_map_green, 1)
+       #  sq_error_green_count = torch.nonzero(ssim_map_green_sum_RGB).size()[0]
+       #  num_signif = tensor_size[2] * tensor_size[3] - sq_error_green_count
+       #
+       #  # ssim_map_sum_check = 0.0
+       #  #
+       #  # countGreen_check = 0;
+       #  # for i in range(tensor_size[2]):
+       #  #     for j in range(tensor_size[3]):
+       #  #         # if pixel is green in both increase counter
+       #  #         if (minRGB[0] <= img1[0, 0, i, j] <= maxRGB[0] and minRGB[1] <= img1[0, 1, i, j] <= maxRGB[1] and minRGB[2] <= img1[
+       #  #             0, 2, i, j] <= maxRGB[2]) and \
+       #  #                 (minRGB[0] <= img2[0, 0, i, j] <= maxRGB[0] and minRGB[1] <= img2[0, 1, i, j] <= maxRGB[1] and minRGB[2] <= img2[
+       #  #                     0, 2, i, j] <= maxRGB[2]):  # inrange
+       #  #             countGreen_check += 1
+       #  #         else:  # add to error
+       #  #             ssim_map_sum_check += torch.sum(ssim_map[:, :, i, j])
+       #  #
+       #  # num_signif_check = tensor_size[2] * tensor_size[3] - countGreen_check
+       #
+       #  if (num_signif == 0):
+       #      # image is all green - print warning
+       #      print("Warning: image is entirely green - please delete")
+       #      return 0
+       #  else:
+       #      return ssim_map_corrected_sum / (3 * num_signif)
 
     if size_average:
         return ssim_map.mean()

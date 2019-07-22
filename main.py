@@ -123,7 +123,7 @@ def train(epoch):
         epoch_loss += loss_val
 
         board_writer.add_scalar('data/iter_training_loss', loss_val, iteration)
-        print("===> Epoch[{}]({}/{}): Loss: {:.4f}".format(epoch, iteration, len(training_data_loader), loss_val))
+        print("===> Epoch[{}]({}/{}): Loss: {:.20f}".format(epoch, iteration, len(training_data_loader), loss_val))
 
     weight_l2s = 0
     weight_diff_l2s = 0
@@ -137,7 +137,7 @@ def train(epoch):
     board_writer.add_scalar('data/epoch_gradient_l2', gradient_l2s, epoch)
     epoch_loss /= len(training_data_loader)
     board_writer.add_scalar('data/epoch_training_loss', epoch_loss, epoch)
-    print("===> Epoch {} Complete: Avg. Loss: {:.4f}".format(epoch, epoch_loss))
+    print("===> Epoch {} Complete: Avg. Loss: {:.20f}".format(epoch, epoch_loss))
 
 
 def save_checkpoint(epoch):
